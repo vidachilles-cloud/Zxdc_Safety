@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>火力发电厂全景系统流程图</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        #canvas {
+            transform-origin: 0 0;
+            transition: transform 0.05s ease-out;
+        }
+        .grab { cursor: grab; }
+        .grabbing { cursor: grabbing; }
+        
+        /* 弹窗样式 - 苹果风格 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        .modal-overlay.show {
+            display: flex;
+        }
+        
+        .modal-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 480px;
+            max-height: 80vh;
+            overflow: hidden;
+            animation: slideUp 0.25s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #f0f0f5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #f5f5f7;
+            color: #86868b;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        
+        .modal-close:hover {
+            background: #e8e8ed;
+            color: #1d1d1f;
+        }
+        
+        .modal-body {
+            padding: 20px 24px;
+            overflow-y: auto;
+            max-height: calc(80vh - 140px);
+        }
+        
+        .modal-info-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #f5f5f7;
+        }
+        
+        .modal-info-label {
+            width: 100px;
+            color: #86868b;
+            font-size: 14px;
+        }
+        
+        .modal-info-value {
+            flex: 1;
+            color: #1d1d1f;
+            font-size: 14px;
+        }
+        
+        .mermaid-node {
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .mermaid-node:hover {
+            filter: brightness(0.95);
+        }
+    </style>
+</head>
+<body class="bg-white text-slate-800 min-h-screen flex flex-col overflow-hidden select-none">
+
+    <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-slate-800 rounded-lg text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+            <div>
+                <h1 class="text-lg font-semibold tracking-tight text-slate-900">火力发电厂全系统流程图</h1>
+                <p class="text-xs text-slate-500">13 大外围及核心主汽水系统</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+            <button id="btn-zoom-in" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-full text-sm font-medium text-slate-700 transition-all duration-150" title="放大">+</button>
+            <button id="btn-zoom-out" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-full text-sm font-medium text-slate-700 transition-all duration-150" title="缩小">−</button>
+            <button id="btn-reset" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-700 text-white rounded-full text-sm font-medium transition-all duration-150" title="自适应视图">复位</button>
+            <span class="text-xs text-slate-400 px-2 hidden lg:inline">拖拽移动 · 滚轮缩放</span>
+        </div>
+    </header>
+
+    <main class="flex-1 relative overflow-hidden bg-white grab" id="viewport">
+        <div id="canvas" class="absolute p-20 min-w-max min-h-max">
+            <pre class="mermaid invisible">
+%%{init: {'theme': 'neutral', 'themeVariables': { 'fontSize': '12px', 'fontFamily': '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', 'primaryColor': '#1d1d1f', 'primaryTextColor': '#1d1d1f', 'primaryBorderColor': '#d2d2d7', 'lineColor': '#86868b', 'nodeBorder': '#d2d2d7', 'clusterBkg': '#f5f5f7', 'clusterBorder': '#d2d2d7' }, 'flowchart': {'useMaxWidth': false}, 'graph': {'padding': '10'}}}%%
+flowchart LR
+    %% ==================== 苹果风格颜色定义 ====================
+    classDef combustion fill:#fff3e8,stroke:#ff9500,stroke-width:1.5px
+    classDef boiler fill:#fff0f0,stroke:#ff3b30,stroke-width:1.5px
+    classDef turbine fill:#e8f4ff,stroke:#007aff,stroke-width:1.5px
+    classDef aux fill:#f0e8ff,stroke:#af52de,stroke-width:1.5px
+    classDef circ fill:#e8ffff,stroke:#34c759,stroke-width:1.5px
+    classDef gen fill:#fffce8,stroke:#ffcc00,stroke-width:1.5px
+    classDef reagent fill:#fff5e8,stroke:#ff9500,stroke-width:1.5px
+    classDef flue fill:#e8ffed,stroke:#34c759,stroke-width:1.5px
+    classDef waste fill:#f5f5f7,stroke:#86868b,stroke-width:1.5px
+    classDef ash fill:#fff5e8,stroke:#ff9500,stroke-width:1.5px
+    classDef bottom fill:#e8f4ff,stroke:#007aff,stroke-width:1.5px
+    classDef air fill:#e8f4ff,stroke:#007aff,stroke-width:1.5px
+    classDef drain fill:#f5f5dc,stroke:#86868b,stroke-width:1.5px
+
+    %% ==================== 燃烧及空气系统 ====================
+    subgraph A[燃烧及空气系统]
+        direction TB
+        OIL_TANK[点火油罐] -->|供油| OIL_PUMP[点火油泵]
+        OIL_PUMP -->|燃油| OIL_GUN[油枪]
+        
+        M[原煤仓] -->|燃料供给| G[给煤机]
+        G -->|计量给煤| MIXER[混料箱]
+        MIXER -->|煤粉混合| MM[磨煤机]
+        MM -->|煤粉粗粉| SEPARATOR[煤粉分离器]
+        SEPARATOR -->|粗粉返回| MM
+        SEPARATOR -->|合格煤粉| OIL_GUN
+        OIL_GUN -->|煤粉入炉| B[锅炉炉膛]
+
+        PA[一次风机] -->|干燥/输送风| AH[暖风机]
+        AH -->|预热风| APH[空气预热器]
+        APH -->|热一次风| HOT_PA_HEADER[热一次风母管]
+        PA -->|冷一次风| COLD_PA_HEADER[冷一次风母管]
+        PA -->|冷一次风| COLD_PA[冷一次风]
+        
+        HOT_PA_HEADER -->|热一次风| PA_HEADER[一次风母管]
+        COLD_PA_HEADER -->|冷一次风| PA_HEADER
+        PA_HEADER -->|送粉风| MM
+
+        PA -->|旁路风| BYPASS_AIR[旁路风]
+        BYPASS_AIR -->|调温/混合| MIXER
+
+        FA[送风机] -->|助燃风| AH
+        APH -->|二次风| FA2[二次风箱]
+        FA2 -->|二次风| B
+
+        COLD_PA -->|密封风源| SEAL_FAN[密封风机]
+        SEAL_FAN -->|增压| SEAL_AIR[密封风母管]
+        SEAL_AIR -->|密封| MM
+        SEAL_AIR -->|密封| G
+        SEAL_AIR -->|密封| OIL_GUN
+
+        AMBIENT[大气风] -->|冷却风| FLAME_FAN[火检冷却风机]
+        FLAME_FAN -->|冷却| FLAME_DET[火检探头]
+        FLAME_DET -->|信号| B
+
+        EXH_FAN[排烟风机] -->|排烟| B
+    end
+    class A combustion
+
+    %% ==================== 锅炉汽水系统及炉膛 ====================
+    subgraph B[锅炉汽水系统及炉膛]
+        direction TB
+        EC[省煤器] -->|给水| WW[水冷壁]
+        WW -->|汽水混合物| SEP[汽水分离器]
+        SEP -->|饱和蒸汽| ROOF[顶棚过热器]
+        ROOF -->|蒸汽| ENCL[包墙过热器]
+        ENCL -->|蒸汽| LTSH[低温过热器]
+        LTSH -->|蒸汽| DESUP1[一级减温器]
+        DESUP1 -->|蒸汽| PLATSH[屏式过热器]
+        PLATSH -->|蒸汽| DESUP2[二级减温器]
+        DESUP2 -->|蒸汽| HTSH[高温过热器]
+        HTSH -->|主蒸汽| HP[汽轮机高压缸]
+        
+        SEP -->|分离水| ST[储水罐]
+        ST -->|疏水| BCP[BCP循环泵]
+        BCP -->|启动循环| 361[361阀]
+        BCP -->|再循环| EC
+        
+        HP -->|冷再热| CR[冷段再热]
+        CR -->|蒸汽| RHR[低温再热器]
+        RHR -->|蒸汽| RHR2[高温再热器]
+        RHR2 -->|热再热| HR[热段再热]
+    end
+    class B boiler
+
+    %% ==================== 脱硝还原剂制备系统 ====================
+    subgraph R[脱硝还原剂制备系统]
+        direction LR
+        UREA[尿素储罐] -->|输送| UREA_PUMP[尿素溶液输送泵]
+        UREA_PUMP -->|升压| HYDROLYSIS[水解区]
+        
+        HYDROLYSIS -->|产品气| PRODUCT_PURGE[产品气吹扫]
+        HYDROLYSIS -->|加热蒸汽| STEAM_PURGE[减温减压蒸汽吹扫]
+        
+        PRODUCT_PURGE -->|产品气| PRODUCT_HEADER[四期产品气母管]
+        STEAM_PURGE -->|减温减压蒸汽| PRODUCT_HEADER
+        
+        PRODUCT_HEADER -->|混合气| MIXER_SCR[氨/空气混合器]
+    end
+    class R reagent
+
+    %% ==================== 烟气处理与脱硫系统 ====================
+    subgraph D[烟气脱硫与除尘系统]
+        direction TB
+        B -->|产生| GAS[锅炉烟气]
+        GAS -->|余热回收| EC
+        GAS -->|加热用烟气| ROOF
+        ROOF -->|加热用烟气| ENCL
+        ENCL -->|加热用烟气| LTSH
+        LTSH -->|加热用烟气| PLATSH
+        PLATSH -->|加热用烟气| HTSH
+        HTSH -->|加热用烟气| RHR
+        
+        EC -->|烟气| AIG[喷氨格栅]
+        
+        DILUTION_FAN[稀释风机] -->|空气| MIXER_SCR
+        MIXER_SCR -->|氨空气混合物| AIG
+        
+        AIG -->|喷氨后烟气| SCR[SCR脱硝]
+        SCR -->|脱硝后烟气| APH
+        
+        GAS -->|加热用烟气| APH
+        APH -->|降温烟气| ECONO[烟冷器]
+        ECONO -->|引风| IDF[吸风机]
+        IDF -->|除尘| ESP[静电除尘器]
+        ESP -->|脱硫| FGD[吸收塔]
+        
+        EMERGENCY_TANK[事故浆液箱]
+        FGD -->|排浆| EMERGENCY_TANK
+        EMERGENCY_TANK -->|返回浆液| FGD
+        
+        FGD -->|石膏浆| GYP[石膏排出泵]
+        FGD -->|浆液循环| PUMPS[浆液循环泵]
+        PUMPS -->|至喷淋层| SPR[喷淋层]
+        SPR -->|喷淋后回落| FGD
+        PULSE[脉冲悬浮泵] -->|防沉淀| FGD
+        
+        PUMPS -->|排放| DRAIN[地沟]
+        
+        FGD -->|净烟气| DEM[除雾器]
+        DEM -->|排放| STACK[(烟囱)]
+        
+        LIME[石灰石浆液] -->|供浆| FGD
+        OX[氧化风机] -->|氧化空气| FGD
+        GYP -->|一级脱水| HYD[旋流站]
+        HYD -->|底流| VAC[真空皮带机]
+        VAC -->|石膏| GYPST[石膏库]
+        HYD -->|溢流| REC_TANK[回收水箱]
+        
+        ECONO -.->|余热加热| LP6
+    end
+    class D flue
+
+    %% ==================== 汽轮机与回热系统 ====================
+    subgraph C[汽轮机与回热系统]
+        direction TB
+        HR -->|做功| IP[汽轮机中压缸]
+        IP -->|做功| LP[汽轮机低压缸]
+        LP -->|乏汽| CD[凝汽器]
+        
+        CD -->|凝结水| HOTWELL[凝汽器热井]
+        
+        HP -- "高压缸抽汽" --> HP3[#3高加]
+        
+        IP -->|抽汽| IPE[中压缸抽汽]
+        IPE -->|供汽| AUX_BOX[辅汽联箱]
+        IPE -->|加热| DEA[除氧器]
+        
+        LP -->|抽汽| LPE[低压缸抽汽]
+        LPE -->|至#5低加| LP5[#5低加]
+        LPE -->|至#6低加| LP6[#6低加]
+        LPE -->|至#7低加| LP7[#7低加]
+        LPE -->|至#8低加| LP8[#8低加]
+        
+        HOTWELL -->|凝结水| CP[凝结水泵]
+        CP -->|至精处理| POL[凝结水精处理]
+        POL -->|至凝输泵| COND_TRANS_PUMP[凝输泵]
+        COND_TRANS_PUMP -->|至轴封加热器| SG[轴封加热器]
+        COND_TRANS_PUMP -->|至除氧器| DEA
+        SG -->|顺序加热| LP8
+        LP8 -->|疏水/凝结水| LP7
+        LP7 -->|疏水/凝结水| LP6
+        LP6 -->|疏水/凝结水| LP5
+        LP5 -->|疏水/凝结水| DEA
+        
+        %% 给水泵系统
+        DEA -->|给水| TURBO_FWP_PRE[汽泵前置泵]
+        TURBO_FWP_PRE -->|给水| TURBO_FWP[汽动给水泵]
+        TURBO_FWP -->|至#3高加| HP3
+        
+        DEA -->|给水| MOTOR_FWP_PRE[电泵前置泵]
+        MOTOR_FWP_PRE -->|给水| MOTOR_FWP[电动给水泵]
+        MOTOR_FWP -->|至#3高加| HP3
+        
+        %% EH油泵、小机油泵、轴封减温水
+        EHPUMP[EH油泵] -->|抗燃油| HP
+        EHPUMP -->|抗燃油| IP
+        TURB_OIL_PUMP[小机油泵] -->|润滑油| TURBO_FWP
+        GLAND_SEAL_COOL[轴封减温水] -->|减温水| SG
+        
+        HP3 -->|至#2高加| HP2[#2高加]
+        HP2 -->|至#1高加| HP1[#1高加]
+        HP1 -->|锅炉给水| EC
+        
+        %% 高加疏水及连续放气
+        HP1 -- "高加疏水" --> HP2
+        HP2 -- "高加疏水" --> HP3
+        HP3 -- "高加疏水" --> DR[疏水扩容器]
+        DR -->|蒸汽| DEA
+        DR -->|疏水| HOTWELL
+        
+        HP3 -->|高加疏水| DEA
+        HP1 -->|高加连续放气| DEA
+        HP2 -->|高加连续放气| DEA
+        HP3 -->|高加连续放气| DEA
+        
+        DEA -->|至除氧水箱| DEA_TANK[除氧水箱]
+        
+        LP5 -- "低加疏水" --> LP6
+        LP6 -- "低加疏水" --> LP7
+        LP7 -- "低加疏水" --> LP8
+        LP8 -- "低加疏水" --> HOTWELL
+        
+        HTSH -->|高压旁路| HPC[高压旁路]
+        HPC -->|减温减压| CD
+        HR -->|低压旁路| CD
+        
+        CD -->|抽真空| ROOTS[罗茨泵组]
+        ROOTS -->|至机械真空泵| MECH[机械真空泵]
+        MECH -->|排大气| VENT[排大气]
+        
+        CR -->|冷段蒸汽| AUX_BOX
+    end
+    class C turbine
+
+    %% ==================== 辅汽系统 ====================
+    subgraph H[辅助蒸汽系统]
+        direction LR
+        AUX_BOX[辅汽联箱] -->|供汽| AUX_HEADER[辅汽母管]
+        B -.->|启动蒸汽| AUX_BOX
+        UNIT3_SUP[三期来汽] -->|联络供汽| AUX_BOX
+        
+        AUX_HEADER -->|加热| HEATER[暖风器]
+        AUX_HEADER -->|加热| DEA[除氧器]
+        AUX_HEADER -->|吹灰| AUX_APH_BLOW[空预器吹灰]
+        AUX_HEADER -->|暖机| AUX_HP_WARM[高压缸暖机]
+        AUX_HEADER -->|防爆| AUX_MILL[磨煤机及分离器]
+        AUX_HEADER -->|伴热| AUX_HOPPER[灰斗加热]
+        AUX_HEADER -->|联络| AUX_TO_UNIT8[#8机辅汽]
+        
+        AUX_HEADER -->|轴封供汽| AUX_GLAND_MAIN[轴封母管]
+        AUX_GLAND_MAIN -->|主机轴封| AUX_GLAND_MAIN_T[汽轮机轴封]
+        AUX_GLAND_MAIN -->|小机轴封| AUX_GLAND_BFPT[小机轴封]
+        AUX_HEADER -->|调试| AUX_BFPT_COMM[小机调试]
+        
+        AUX_HEADER -->|吹灰蒸汽| SOOT_SOUND[声波吹灰器]
+        AUX_HEADER -->|吹灰蒸汽| SOOT_HIGH[高声强吹灰器]
+    end
+    class H aux
+
+    %% ==================== 循环水系统 ====================
+    subgraph E[循环水系统]
+        direction LR
+        CT[冷却塔] -->|冷却水| FILTER[循环水过滤装置]
+        FILTER -->|过滤后| CWP_GROUP[循环水泵组]
+        
+        CWP_GROUP -->|供冷却水| CD[凝汽器]
+        CWP_GROUP -->|供水| CW_INLET[循环水进水管]
+        
+        CW_INLET -->|冷却| MOL[主机冷油器]
+        CW_INLET -->|冷却| OPCW[开式冷却水泵]
+        CW_INLET -->|冷却| ROOTS_COOL[罗茨泵冷却器]
+        CW_INLET -->|冷却| VAC_COOL[真空泵冷却器]
+        CW_INLET -->|冷却| CLOSED_COOLER[闭式水冷却器]
+        
+        MOL -->|回水| CWR[回水]
+        OPCW -->|回水| CWR
+        ROOTS_COOL -->|回水| CWR
+        VAC_COOL -->|回水| CWR
+        CLOSED_COOLER -->|回水| CWR
+        CD -->|温排水| CWR
+        CWR -->|回水| CT
+    end
+    class E circ
+
+    %% ==================== 发电机及电气系统 ====================
+    subgraph F[发电机及电气系统]
+        direction LR
+        LP -->|机械能| GEN[发电机]
+        GEN -->|电能| GENB[断路器]
+        GENB -->|至主变| MAIN[主变压器]
+        MAIN -->|并网| GRID[电网]
+        GEN -->|励磁| EX[励磁机]
+        
+        H2_SYS[氢气系统] -->|供氢| GEN
+    end
+    class F gen
+
+    %% ==================== 飞灰除灰系统 ====================
+    subgraph I[飞灰除灰系统]
+        direction TB
+        ESP -->|一电场灰| HOPPER1[灰斗一电场]
+        ESP -->|二电场灰| HOPPER2[灰斗二电场]
+        ESP -->|三、四、五电场灰| HOPPER3[灰斗三四五电场]
+        
+        HOPPER1 -->|原/粗| ORIG_SILO[原灰库]
+        HOPPER1 -->|原/粗| COARSE_SILO[粗灰库]
+        
+        HOPPER2 -->|至原灰库| ORIG_SILO
+        
+        HOPPER3 -->|至原灰库| ORIG_SILO
+        HOPPER3 -->|细灰| FINE_SILO[细灰库]
+        
+        ORIG_SILO -->|装车| ASH_TRUCK[灰车外运]
+        COARSE_SILO -->|装车| ASH_TRUCK
+        FINE_SILO -->|装车| ASH_TRUCK
+    end
+    class I ash
+
+    %% ==================== 底渣处理系统 ====================
+    subgraph K[底渣处理系统]
+        direction TB
+        B[锅炉炉膛] -->|底渣| SLAG_HOPPER[锅炉渣斗]
+        SLAG_HOPPER -->|干式排渣| DRY_CRUSHER[干式排渣机（钢带）]
+        DRY_CRUSHER -->|粗渣| S_CRUSHER[碎渣机]
+        S_CRUSHER -->|细渣| SCREW_CONV[刮板输送机]
+        SCREW_CONV -->|渣| CHAIN_CONV[链条输送机]
+        CHAIN_CONV -->|渣| ASH_BIN_A[AB渣仓]
+        ASH_BIN_A -->|装车| TRUCK_OUT[汽车运走]
+        ASH_BIN_A -->|污水| SEWAGE_PIT[渣仓污水池]
+    end
+    class K bottom
+
+    %% ==================== 压缩空气系统 ====================
+    subgraph J[压缩空气系统]
+        direction TB
+        AC[空压机] -->|压缩| AIR_TANK[储气罐]
+        AIR_TANK -->|仪用/杂用| AIR_DRY[干燥机]
+        AIR_DRY -->|净化气| AIR_USER[用户]
+    end
+    class J air
+
+    %% ==================== 废水处理系统 ====================
+    subgraph W[废水处理系统]
+        direction LR
+        REC_TANK -->|废水| FEED[废水给料泵]
+        FEED -->|提升| NEU[中和箱]
+        NEU -->|pH调节| SET[沉降箱]
+        SET -->|混凝| FLO[絮凝箱]
+        FLO -->|上清液| CLEAN[清水池]
+        FLO -->|污泥| PRESS[板框脱泥机]
+        PRESS -->|泥饼| SLUDGE[污泥外运]
+        PRESS -->|滤液| FILTRATE[滤液箱]
+        CLEAN -->|回用| REUSE_WATER[中水回用]
+        DEM_W[工艺水] -->|冲洗| DEM[除雾器]
+    end
+    class W waste
+
+    %% ==================== 新增疏水系统 ====================
+    subgraph S[疏水系统]
+        direction TB
+        ATMOS_DR[大气式疏水扩容器]
+        
+        SOOT_DRAIN[吹灰系统疏水] --> ATMOS_DR
+        BCP_DRAIN[BCP系统疏水] --> ATMOS_DR
+        MSV_CRV_DRAIN[MSV/CRV疏水] --> ATMOS_DR
+        HEATER_DRAIN[暖风器系统疏水] --> ATMOS_DR
+        AUX_STEAM_DRAIN[辅助蒸汽疏水] --> ATMOS_DR
+        BOILER_NORM_DRAIN[锅炉正常疏水] --> ATMOS_DR
+        TURB_PRESS_DRAIN[机侧有压放水] --> ATMOS_DR
+        DEA_DRAIN[除氧器放水] --> ATMOS_DR
+    end
+    class S drain
+            </pre>
+        </div>
+    </main>
+
+    <footer class="bg-white/80 backdrop-blur-md border-t border-slate-200 px-6 py-2 text-xs text-slate-500 flex justify-between z-10">
+        <div>系统状态: <span id="status" class="text-slate-600 font-medium">正在编译及渲染流程图...</span></div>
+        <div>渲染内核: Mermaid.js v10</div>
+    </footer>
+
+    <!-- 节点详情弹窗 -->
+    <div class="modal-overlay" id="node-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">节点信息</h2>
+                <button class="modal-close" id="modal-close-btn">×</button>
+            </div>
+            <div class="modal-body" id="modal-content">
+                <div class="modal-info-row">
+                    <span class="modal-info-label">节点名称</span>
+                    <span class="modal-info-value" id="node-name">-</span>
+                </div>
+                <div class="modal-info-row">
+                    <span class="modal-info-label">所属系统</span>
+                    <span class="modal-info-value" id="node-system">-</span>
+                </div>
+                <div class="modal-info-row">
+                    <span class="modal-info-label">功能描述</span>
+                    <span class="modal-info-value" id="node-description">-</span>
+                </div>
+                <div class="modal-info-row">
+                    <span class="modal-info-label">状态</span>
+                    <span class="modal-info-value" id="node-status">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        
+        // 核心参数初始化，保障大数据量渲染不被强制截断
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'neutral',
+            securityLevel: 'loose',
+            themeVariables: {
+                fontSize: '12px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+                primaryColor: '#1d1d1f',
+                primaryTextColor: '#1d1d1f',
+                primaryBorderColor: '#d2d2d7',
+                lineColor: '#86868b',
+                nodeBorder: '#d2d2d7',
+                clusterBkg: '#f5f5f7',
+                clusterBorder: '#d2d2d7'
+            },
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true
+            }
+        });
+
+        // 渲染安全监控
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkRender = setInterval(() => {
+                const svg = document.querySelector('#canvas svg');
+                if (svg) {
+                    clearInterval(checkRender);
+                    document.querySelector('.mermaid').classList.remove('invisible');
+                    document.getElementById('status').innerHTML = '🟢 系统运行正常 (已适配原图布局与颜色体系)';
+                    resetCanvas(); // 渲染后执行自动视口居中
+                }
+            }, 300);
+        });
+
+        // 视口平移与无级缩放交互控制逻辑
+        const viewport = document.getElementById('viewport');
+        const canvas = document.getElementById('canvas');
+        
+        let scale = 0.35; // 针对超大图表初始默认全局缩放比
+        let posX = 50;
+        let posY = 50;
+        let isDragging = false;
+        let startX, startY;
+
+        function updateTransform() {
+            canvas.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+        }
+
+        // 控制按钮映射
+        document.getElementById('btn-zoom-in').addEventListener('click', () => {
+            scale = Math.min(scale + 0.08, 2);
+            updateTransform();
+        });
+
+        document.getElementById('btn-zoom-out').addEventListener('click', () => {
+            scale = Math.max(scale - 0.08, 0.05);
+            updateTransform();
+        });
+
+        function resetCanvas() {
+            scale = 0.35;
+            posX = (viewport.clientWidth - canvas.clientWidth * scale) / 2;
+            posY = 60;
+            if (posX < 20) posX = 20;
+            updateTransform();
+        }
+
+        document.getElementById('btn-reset').addEventListener('click', resetCanvas);
+
+        // 鼠标拖拽画布平移逻辑
+        viewport.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // 限制仅鼠标左键有效
+            isDragging = true;
+            viewport.classList.replace('grab', 'grabbing');
+            startX = e.clientX - posX;
+            startY = e.clientY - posY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            posX = e.clientX - startX;
+            posY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                viewport.classList.replace('grabbing', 'grab');
+            }
+        });
+
+        // 鼠标滚轮无级缩放逻辑
+        viewport.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomStep = 0.03;
+            if (e.deltaY < 0) {
+                scale = Math.min(scale + zoomStep, 2);
+            } else {
+                scale = Math.max(scale - zoomStep, 0.05);
+            }
+            updateTransform();
+        }, { passive: false });
+
+        // ==================== 节点点击弹窗功能 ====================
+        
+        // 节点数据
+        const nodeData = {
+            // 燃烧及空气系统
+            'OIL_TANK': { name: '点火油罐', system: '燃烧及空气系统', description: '储存点火用油，为锅炉启动提供燃料', status: '正常' },
+            'OIL_PUMP': { name: '点火油泵', system: '燃烧及空气系统', description: '将燃油从油罐输送至油枪', status: '正常' },
+            'OIL_GUN': { name: '油枪', system: '燃烧及空气系统', description: '雾化燃油并点燃，为煤粉燃烧提供火源', status: '正常' },
+            'M': { name: '原煤仓', system: '燃烧及空气系统', description: '储存原煤，为磨煤机提供燃料', status: '正常' },
+            'G': { name: '给煤机', system: '燃烧及空气系统', description: '定量将原煤送入磨煤机', status: '正常' },
+            'MIXER': { name: '混料箱', system: '燃烧及空气系统', description: '混合原煤与旁路风', status: '正常' },
+            'MM': { name: '磨煤机', system: '燃烧及空气系统', description: '将原煤研磨成煤粉', status: '正常' },
+            'SEPARATOR': { name: '煤粉分离器', system: '燃烧及空气系统', description: '分离粗细煤粉，粗粉返回再磨', status: '正常' },
+            'B': { name: '锅炉炉膛', system: '锅炉汽水系统', description: '煤粉燃烧产生高温烟气', status: '运行中' },
+            'PA': { name: '一次风机', system: '燃烧及空气系统', description: '提供一次风，输送和干燥煤粉', status: '正常' },
+            'AH': { name: '暖风机', system: '燃烧及空气系统', description: '预热进入空气预热器的空气', status: '正常' },
+            'APH': { name: '空气预热器', system: '燃烧及空气系统', description: '利用烟气余热预热空气', status: '正常' },
+            'FA': { name: '送风机', system: '燃烧及空气系统', description: '提供二次风，助燃并冷却炉膛', status: '正常' },
+            'SEAL_FAN': { name: '密封风机', system: '燃烧及空气系统', description: '为磨煤机、给煤机提供密封风', status: '正常' },
+            
+            // 锅炉汽水系统
+            'EC': { name: '省煤器', system: '锅炉汽水系统', description: '利用烟气余热加热给水', status: '正常' },
+            'WW': { name: '水冷壁', system: '锅炉汽水系统', description: '吸收炉膛热量产生汽水混合物', status: '运行中' },
+            'SEP': { name: '汽水分离器', system: '锅炉汽水系统', description: '分离蒸汽和水', status: '正常' },
+            'ROOF': { name: '顶棚过热器', system: '锅炉汽水系统', description: '加热蒸汽至过热状态', status: '正常' },
+            'ENCL': { name: '包墙过热器', system: '锅炉汽水系统', description: '进一步加热蒸汽', status: '正常' },
+            'LTSH': { name: '低温过热器', system: '锅炉汽水系统', description: '低温段蒸汽加热', status: '正常' },
+            'DESUP1': { name: '一级减温器', system: '锅炉汽水系统', description: '调节蒸汽温度', status: '正常' },
+            'PLATSH': { name: '屏式过热器', system: '锅炉汽水系统', description: '高温段蒸汽加热', status: '正常' },
+            'DESUP2': { name: '二级减温器', system: '锅炉汽水系统', description: '精细调节蒸汽温度', status: '正常' },
+            'HTSH': { name: '高温过热器', system: '锅炉汽水系统', description: '最终加热蒸汽至额定温度', status: '正常' },
+            
+            // 汽轮机与回热系统
+            'HP': { name: '汽轮机高压缸', system: '汽轮机与回热系统', description: '高压蒸汽做功', status: '运行中' },
+            'IP': { name: '汽轮机中压缸', system: '汽轮机与回热系统', description: '中压蒸汽做功', status: '运行中' },
+            'LP': { name: '汽轮机低压缸', system: '汽轮机与回热系统', description: '低压蒸汽做功', status: '运行中' },
+            'CD': { name: '凝汽器', system: '汽轮机与回热系统', description: '冷却乏汽凝结成水', status: '正常' },
+            'GEN': { name: '发电机', system: '发电机及电气系统', description: '将机械能转化为电能', status: '运行中' },
+            
+            // 循环水系统
+            'CT': { name: '冷却塔', system: '循环水系统', description: '冷却循环水', status: '正常' },
+            'CWP_GROUP': { name: '循环水泵组', system: '循环水系统', description: '提供循环冷却水', status: '正常' },
+            
+            // 烟气脱硫与除尘系统
+            'ESP': { name: '静电除尘器', system: '烟气脱硫与除尘系统', description: '去除烟气中的粉尘', status: '正常' },
+            'FGD': { name: '吸收塔', system: '烟气脱硫与除尘系统', description: '脱硫处理', status: '正常' },
+            'STACK': { name: '烟囱', system: '烟气脱硫与除尘系统', description: '排放净化后的烟气', status: '正常' },
+            
+            // 辅助蒸汽系统
+            'AUX_BOX': { name: '辅汽联箱', system: '辅助蒸汽系统', description: '提供辅助蒸汽', status: '正常' },
+            
+            // 飞灰除灰系统
+            'ORIG_SILO': { name: '原灰库', system: '飞灰除灰系统', description: '储存原灰', status: '正常' },
+            'COARSE_SILO': { name: '粗灰库', system: '飞灰除灰系统', description: '储存粗灰', status: '正常' },
+            'FINE_SILO': { name: '细灰库', system: '飞灰除灰系统', description: '储存细灰', status: '正常' }
+        };
+
+        // 弹窗元素
+        const modalOverlay = document.getElementById('node-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        
+        // 关闭弹窗
+        function closeModal() {
+            modalOverlay.classList.remove('show');
+        }
+        
+        modalCloseBtn.addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                closeModal();
+            }
+        });
+        
+        // 显示弹窗
+        function showNodeInfo(nodeId) {
+            const data = nodeData[nodeId] || { name: nodeId, system: '未知', description: '暂无详细信息', status: '未知' };
+            
+            document.getElementById('modal-title').textContent = data.name;
+            document.getElementById('node-name').textContent = data.name;
+            document.getElementById('node-system').textContent = data.system;
+            document.getElementById('node-description').textContent = data.description;
+            document.getElementById('node-status').textContent = data.status;
+            
+            modalOverlay.classList.add('show');
+        }
+        
+        // 为流程图节点添加点击事件
+        function attachNodeClickHandlers() {
+            const svg = document.querySelector('#canvas svg');
+            if (!svg) return;
+            
+            // 找到所有节点group
+            const nodes = svg.querySelectorAll('.node');
+            nodes.forEach((node) => {
+                const nodeId = node.getAttribute('id');
+                if (nodeId) {
+                    node.style.cursor = 'pointer';
+                    node.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showNodeInfo(nodeId);
+                    });
+                    // 添加hover效果
+                    node.addEventListener('mouseenter', () => {
+                        node.style.opacity = '0.8';
+                    });
+                    node.addEventListener('mouseleave', () => {
+                        node.style.opacity = '1';
+                    });
+                }
+            });
+        }
+        
+        // 在渲染完成后绑定点击事件
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkRender = setInterval(() => {
+                const svg = document.querySelector('#canvas svg');
+                if (svg) {
+                    clearInterval(checkRender);
+                    setTimeout(attachNodeClickHandlers, 500); // 延迟绑定确保完全渲染
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>
